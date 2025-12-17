@@ -1107,6 +1107,14 @@
             }
         }
 
+        function showMessage(message) {
+            const messageBox = document.getElementById('messageBox');
+            if (messageBox) {
+                messageBox.textContent = message;
+                console.log('Message:', message);
+            }
+        }
+
         // ============================================================================
         // PIECE INTERACTION
         // ============================================================================
@@ -1323,12 +1331,19 @@
         // ============================================================================
 
         async function handleCellClick(row, col) {
+            console.log('Cell clicked:', row, col);
+            console.log('Current player:', game.currentPlayerIndex, 'My ID:', game.playerId);
+
             // Only allow placement on your turn
             if (game.currentPlayerIndex !== game.playerId) {
+                showMessage('❌ 상대방의 턴입니다!');
+                console.log('Not your turn');
                 return;
             }
 
             if (game.selectedPieceIndex === null) {
+                showMessage('⚠️ 먼저 오른쪽에서 조각을 선택해주세요!');
+                console.log('No piece selected');
                 return;
             }
 
@@ -1336,11 +1351,20 @@
             const piece = currentPlayer.pieces[game.selectedPieceIndex];
             const shape = getCurrentShape(piece);
 
+            console.log('Checking placement validity at:', row, col);
             if (!isValidPlacement(game.playerId, shape, row, col)) {
+                const isFirstPiece = currentPlayer.pieces.every(p => !p.used);
+                if (isFirstPiece) {
+                    showMessage('❌ 첫 조각은 시작 모서리(★)를 덮어야 합니다!');
+                } else {
+                    showMessage('❌ 조각은 같은 색과 꼭지점으로만 닿아야 하고, 변으로는 닿으면 안됩니다!');
+                }
+                console.log('Invalid placement');
                 return;
             }
 
             // Place piece on board
+            console.log('Placing piece!');
             for (let r = 0; r < shape.length; r++) {
                 for (let c = 0; c < shape[0].length; c++) {
                     if (shape[r][c] === 1) {
@@ -1356,9 +1380,16 @@
             // Switch turn
             game.currentPlayerIndex = (game.currentPlayerIndex + 1) % 2;
 
+            showMessage('✅ 조각 배치 성공! 상대방 턴입니다...');
+            console.log('Piece placed successfully, syncing to Firebase...');
+
             // Sync to Firebase
             await syncGameState();
 
+            // Update UI
+            renderBoard();
+            renderPieces();
+            updateMessage();
             clearPreview();
         }
 
