@@ -966,6 +966,7 @@
                     }
                 });
 
+                // Desktop: mouseover
                 boardElement.addEventListener('mouseover', (e) => {
                     const cell = e.target.closest('.cell');
                     if (cell) {
@@ -974,6 +975,30 @@
                         showPreview(row, col);
                     }
                 });
+
+                // Mobile: touchstart
+                boardElement.addEventListener('touchstart', (e) => {
+                    const touch = e.touches[0];
+                    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const cell = element?.closest('.cell');
+                    if (cell) {
+                        const row = parseInt(cell.dataset.row);
+                        const col = parseInt(cell.dataset.col);
+                        showPreview(row, col);
+                    }
+                }, { passive: true });
+
+                // Mobile: touchmove
+                boardElement.addEventListener('touchmove', (e) => {
+                    const touch = e.touches[0];
+                    const element = document.elementFromPoint(touch.clientX, touch.clientY);
+                    const cell = element?.closest('.cell');
+                    if (cell) {
+                        const row = parseInt(cell.dataset.row);
+                        const col = parseInt(cell.dataset.col);
+                        showPreview(row, col);
+                    }
+                }, { passive: true });
 
                 // Create cells
                 for (let r = 0; r < 14; r++) {
@@ -1358,16 +1383,22 @@
             console.log('Cell clicked:', row, col);
             console.log('Current player:', game.currentPlayerIndex, 'My ID:', game.playerId);
 
+            // Show preview on click first (for mobile feedback)
+            showPreview(row, col);
+
             // Only allow placement on your turn
             if (game.currentPlayerIndex !== game.playerId) {
                 showMessage('❌ 상대방의 턴입니다!');
                 console.log('Not your turn');
+                // Clear preview after a moment so user sees the red preview
+                setTimeout(clearPreview, 800);
                 return;
             }
 
             if (game.selectedPieceIndex === null) {
                 showMessage('⚠️ 먼저 오른쪽에서 조각을 선택해주세요!');
                 console.log('No piece selected');
+                clearPreview();
                 return;
             }
 
@@ -1384,6 +1415,8 @@
                     showMessage('❌ 조각은 같은 색과 꼭지점으로만 닿아야 하고, 변으로는 닿으면 안됩니다!');
                 }
                 console.log('Invalid placement');
+                // Keep the red preview for a moment so user sees why it failed
+                setTimeout(clearPreview, 800);
                 return;
             }
 
