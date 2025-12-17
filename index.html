@@ -98,12 +98,26 @@
         .game-header {
             text-align: center;
             margin-bottom: 20px;
+            position: relative;
         }
 
         .game-header h1 {
             color: #333;
             font-size: 2.5em;
             margin-bottom: 10px;
+        }
+
+        .version-badge {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #4CAF50;
+            color: white;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.75em;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
 
         .room-code-display {
@@ -422,6 +436,11 @@
                 padding: 15px;
             }
 
+            .version-badge {
+                font-size: 0.65em;
+                padding: 3px 8px;
+            }
+
             .game-header h1 {
                 font-size: 1.8em;
             }
@@ -481,7 +500,10 @@
 <body>
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
-        <h1>Multiplayer Blokus</h1>
+        <div style="position: relative;">
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.2.0</span>
+            <h1>Multiplayer Blokus</h1>
+        </div>
         <p>2-Player Online Game</p>
 
         <div id="lobbyMain">
@@ -516,6 +538,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
+            <span class="version-badge">v1.2.0</span>
             <h1>Multiplayer Blokus</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
