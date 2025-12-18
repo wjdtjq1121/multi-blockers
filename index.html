@@ -979,7 +979,8 @@
 
         function getCurrentShape(piece) {
             // Get base shape from PIECE_SHAPES using shapeIndex
-            let shape = PIECE_SHAPES[piece.shapeIndex];
+            // Deep copy to avoid modifying original
+            let shape = PIECE_SHAPES[piece.shapeIndex].map(row => [...row]);
 
             if (piece.flipped) {
                 shape = flipShape(shape);
@@ -1133,15 +1134,24 @@
             const piecesGrid = document.getElementById('piecesGrid');
             piecesGrid.innerHTML = '';
 
-            // Only show current player's pieces
-            if (game.currentPlayerIndex !== game.playerId) {
-                piecesGrid.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Waiting for opponent...</p>';
+            const currentPlayer = game.players[game.playerId];
+            const isMyTurn = game.currentPlayerIndex === game.playerId;
+
+            console.log('🎨 Rendering pieces - My turn:', isMyTurn, 'Player:', game.playerId, 'Current:', game.currentPlayerIndex);
+
+            // Always show player's own pieces, but disable interaction when not their turn
+            if (!currentPlayer || !currentPlayer.pieces || currentPlayer.pieces.length === 0) {
+                console.log('⚠️ No pieces to render');
+                piecesGrid.innerHTML = '<p style="padding: 20px; text-align: center; color: #666;">Loading pieces...</p>';
                 return;
             }
 
-            const currentPlayer = game.players[game.playerId];
-
             currentPlayer.pieces.forEach((piece, index) => {
+                if (!piece || piece.shapeIndex === undefined) {
+                    console.log('⚠️ Invalid piece at index', index, piece);
+                    return;
+                }
+
                 const pieceDiv = document.createElement('div');
                 pieceDiv.className = 'piece';
                 if (piece.used) {
@@ -1169,8 +1179,13 @@
                 });
 
                 pieceDiv.appendChild(shapeDiv);
-                if (!piece.used) {
+                // Only allow clicking if it's the player's turn and piece is not used
+                if (!piece.used && isMyTurn) {
                     pieceDiv.addEventListener('click', () => selectPiece(index));
+                    pieceDiv.style.cursor = 'pointer';
+                } else if (!isMyTurn) {
+                    pieceDiv.style.opacity = '0.5';
+                    pieceDiv.style.cursor = 'not-allowed';
                 }
 
                 piecesGrid.appendChild(pieceDiv);
@@ -1203,6 +1218,8 @@
         // ============================================================================
 
         function selectPiece(index) {
+            console.log('🖱️ Piece selected:', index, 'Current player:', game.currentPlayerIndex, 'My ID:', game.playerId);
+
             if (game.currentPlayerIndex !== game.playerId) {
                 showMessage('❌ 상대방의 턴입니다!');
                 return;
@@ -1222,6 +1239,13 @@
             } else {
                 showMessage('✅ 조각 선택됨! 같은 색 조각의 꼭지점에 닿도록 배치하세요.');
             }
+
+            console.log('✅ Piece selected successfully:', {
+                index,
+                shape: getCurrentShape(currentPlayer.pieces[index]),
+                rotation: currentPlayer.pieces[index].rotation,
+                flipped: currentPlayer.pieces[index].flipped
+            });
 
             renderPieces();
             renderBoard();
@@ -1428,8 +1452,13 @@
         // ============================================================================
 
         async function handleCellClick(row, col) {
-            console.log('Cell clicked:', row, col);
-            console.log('Current player:', game.currentPlayerIndex, 'My ID:', game.playerId);
+            console.log('🖱️ Cell clicked:', row, col);
+            console.log('📊 Game state:', {
+                currentPlayerIndex: game.currentPlayerIndex,
+                myPlayerId: game.playerId,
+                selectedPieceIndex: game.selectedPieceIndex,
+                isMyTurn: game.currentPlayerIndex === game.playerId
+            });
 
             // Show preview on click first (for mobile feedback)
             showPreview(row, col);
@@ -1437,7 +1466,7 @@
             // Only allow placement on your turn
             if (game.currentPlayerIndex !== game.playerId) {
                 showMessage('❌ 상대방의 턴입니다!');
-                console.log('Not your turn');
+                console.log('❌ Not your turn');
                 // Clear preview after a moment so user sees the red preview
                 setTimeout(clearPreview, 800);
                 return;
@@ -1445,7 +1474,7 @@
 
             if (game.selectedPieceIndex === null) {
                 showMessage('⚠️ 먼저 오른쪽에서 조각을 선택해주세요!');
-                console.log('No piece selected');
+                console.log('⚠️ No piece selected');
                 clearPreview();
                 return;
             }
@@ -1454,7 +1483,13 @@
             const piece = currentPlayer.pieces[game.selectedPieceIndex];
             const shape = getCurrentShape(piece);
 
-            console.log('Checking placement validity at:', row, col);
+            console.log('🔍 Validating placement:', {
+                row, col,
+                shape,
+                rotation: piece.rotation,
+                flipped: piece.flipped
+            });
+
             if (!isValidPlacement(game.playerId, shape, row, col)) {
                 const isFirstPiece = currentPlayer.pieces.every(p => !p.used);
                 if (isFirstPiece) {
@@ -1462,14 +1497,14 @@
                 } else {
                     showMessage('❌ 조각은 같은 색과 꼭지점으로만 닿아야 하고, 변으로는 닿으면 안됩니다!');
                 }
-                console.log('Invalid placement');
+                console.log('❌ Invalid placement');
                 // Keep the red preview for a moment so user sees why it failed
                 setTimeout(clearPreview, 800);
                 return;
             }
 
             // Place piece on board
-            console.log('Placing piece!');
+            console.log('✅ Placing piece at:', row, col);
             for (let r = 0; r < shape.length; r++) {
                 for (let c = 0; c < shape[0].length; c++) {
                     if (shape[r][c] === 1) {
@@ -1479,24 +1514,28 @@
             }
 
             piece.used = true;
+            const oldSelectedIndex = game.selectedPieceIndex;
             game.selectedPieceIndex = null;
             game.passCount = 0;
 
             // Switch turn
+            const oldPlayerIndex = game.currentPlayerIndex;
             game.currentPlayerIndex = (game.currentPlayerIndex + 1) % 2;
 
-            console.log('Piece placed successfully, syncing to Firebase...');
+            console.log('🔄 Turn switched:', oldPlayerIndex, '→', game.currentPlayerIndex);
 
             // Sync to Firebase - UI will update via listener
             try {
                 await syncGameState();
                 showMessage('✅ 조각 배치 성공!');
+                console.log('✅ Successfully synced to Firebase');
             } catch (error) {
-                console.error('Failed to sync game state:', error);
+                console.error('❌ Failed to sync game state:', error);
                 showMessage('❌ 동기화 실패. 다시 시도해주세요.');
                 // Rollback
                 piece.used = false;
-                game.currentPlayerIndex = (game.currentPlayerIndex + 1) % 2;
+                game.selectedPieceIndex = oldSelectedIndex;
+                game.currentPlayerIndex = oldPlayerIndex;
                 for (let r = 0; r < shape.length; r++) {
                     for (let c = 0; c < shape[0].length; c++) {
                         if (shape[r][c] === 1) {
