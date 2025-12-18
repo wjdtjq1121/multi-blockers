@@ -513,7 +513,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.4.0</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.5.0</span>
             <h1>Multiplayer Blokus</h1>
         </div>
         <p>2-Player Online Game</p>
@@ -550,7 +550,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.4.0</span>
+            <span class="version-badge">v1.5.0</span>
             <h1>Multiplayer Blokus</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -890,19 +890,28 @@
 
                 // Update local game state
                 // Firebase converts arrays to objects, so we need to convert them back
-                game.board = Object.values(state.board).map(row => Object.values(row));
+                // Use Array.from with map to ensure proper array conversion
+                game.board = Array.from({ length: 14 }, (_, i) =>
+                    Array.from({ length: 14 }, (__, j) => state.board[i]?.[j] ?? null)
+                );
+
                 game.currentPlayerIndex = state.currentPlayerIndex;
                 game.passCount = state.passCount;
 
-                // Update pieces - convert Firebase objects back to arrays
-                game.players[0].pieces = Object.values(state.pieces[0] || {});
-                game.players[1].pieces = Object.values(state.pieces[1] || {});
+                // Update pieces - ensure proper array conversion with correct indices
+                const pieces0 = state.pieces[0] || state.pieces['0'] || {};
+                const pieces1 = state.pieces[1] || state.pieces['1'] || {};
+
+                game.players[0].pieces = Array.from({ length: 21 }, (_, i) => pieces0[i]).filter(p => p);
+                game.players[1].pieces = Array.from({ length: 21 }, (_, i) => pieces1[i]).filter(p => p);
 
                 console.log('✅ Local game state updated:', {
                     board: game.board,
                     player0Pieces: game.players[0].pieces.length,
                     player1Pieces: game.players[1].pieces.length,
-                    currentPlayer: game.currentPlayerIndex
+                    currentPlayerIndex: game.currentPlayerIndex,
+                    myPlayerId: game.playerId,
+                    isMyTurn: game.currentPlayerIndex === game.playerId
                 });
 
                 // Update UI
@@ -961,35 +970,48 @@
         }
 
         function rotateShape(shape) {
+            // Create completely new array to avoid mutations
             const rows = shape.length;
             const cols = shape[0].length;
-            const rotated = Array(cols).fill(null).map(() => Array(rows).fill(0));
+            const rotated = [];
 
-            for (let r = 0; r < rows; r++) {
-                for (let c = 0; c < cols; c++) {
-                    rotated[c][rows - 1 - r] = shape[r][c];
+            for (let c = 0; c < cols; c++) {
+                rotated[c] = [];
+                for (let r = 0; r < rows; r++) {
+                    rotated[c][r] = shape[rows - 1 - r][c];
                 }
             }
             return rotated;
         }
 
         function flipShape(shape) {
+            // Create completely new array to avoid mutations
             return shape.map(row => [...row].reverse());
         }
 
         function getCurrentShape(piece) {
             // Get base shape from PIECE_SHAPES using shapeIndex
-            // Deep copy to avoid modifying original
-            let shape = PIECE_SHAPES[piece.shapeIndex].map(row => [...row]);
+            // Always create a fresh deep copy
+            let shape = JSON.parse(JSON.stringify(PIECE_SHAPES[piece.shapeIndex]));
+
+            console.log('🔧 Getting shape for piece:', {
+                shapeIndex: piece.shapeIndex,
+                rotation: piece.rotation,
+                flipped: piece.flipped,
+                originalShape: PIECE_SHAPES[piece.shapeIndex]
+            });
 
             if (piece.flipped) {
                 shape = flipShape(shape);
+                console.log('After flip:', shape);
             }
 
-            for (let i = 0; i < piece.rotation; i++) {
+            for (let i = 0; i < (piece.rotation % 4); i++) {
                 shape = rotateShape(shape);
+                console.log(`After rotation ${i + 1}:`, shape);
             }
 
+            console.log('Final shape:', shape);
             return shape;
         }
 
