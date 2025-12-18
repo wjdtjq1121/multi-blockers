@@ -694,8 +694,9 @@
             const roomRef = window.firebaseDB.ref(window.firebaseDB.database, `rooms/${roomCode}`);
 
             // Initialize pieces for both players (create separate copies)
-            const createInitialPieces = () => PIECE_SHAPES.map(shape => ({
-                shape: shape,
+            // Store shapeIndex instead of shape array to avoid Firebase serialization issues
+            const createInitialPieces = () => PIECE_SHAPES.map((shape, index) => ({
+                shapeIndex: index,
                 used: false,
                 rotation: 0,
                 flipped: false
@@ -928,8 +929,8 @@
 
         function initializePieces() {
             game.players.forEach(player => {
-                player.pieces = PIECE_SHAPES.map(shape => ({
-                    shape: shape,
+                player.pieces = PIECE_SHAPES.map((shape, index) => ({
+                    shapeIndex: index,
                     used: false,
                     rotation: 0,
                     flipped: false
@@ -955,7 +956,8 @@
         }
 
         function getCurrentShape(piece) {
-            let shape = piece.shape;
+            // Get base shape from PIECE_SHAPES using shapeIndex
+            let shape = PIECE_SHAPES[piece.shapeIndex];
 
             if (piece.flipped) {
                 shape = flipShape(shape);
@@ -1087,7 +1089,8 @@
                 const usedPieces = player.pieces.filter(p => p.used).length;
                 const totalSquares = player.pieces.reduce((sum, piece) => {
                     if (!piece.used) {
-                        return sum + piece.shape.flat().filter(cell => cell === 1).length;
+                        const shape = PIECE_SHAPES[piece.shapeIndex];
+                        return sum + shape.flat().filter(cell => cell === 1).length;
                     }
                     return sum;
                 }, 0);
@@ -1533,7 +1536,8 @@
             const scores = game.players.map((player, index) => {
                 const remainingSquares = player.pieces.reduce((sum, piece) => {
                     if (!piece.used) {
-                        return sum + piece.shape.flat().filter(cell => cell === 1).length;
+                        const shape = PIECE_SHAPES[piece.shapeIndex];
+                        return sum + shape.flat().filter(cell => cell === 1).length;
                     }
                     return sum;
                 }, 0);
