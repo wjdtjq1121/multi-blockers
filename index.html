@@ -235,15 +235,27 @@
         .cell.filled.red { background: #F44336; }
 
         .cell.preview {
-            opacity: 0.7;
-            border: 2px solid rgba(0, 255, 0, 0.8);
-            box-shadow: 0 0 5px rgba(0, 255, 0, 0.5);
+            opacity: 0.6;
+            border: 3px solid rgba(0, 255, 0, 0.9) !important;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.7);
+            animation: preview-pulse 1s ease-in-out infinite;
         }
 
         .cell.invalid-preview {
             background: rgba(255, 0, 0, 0.5) !important;
-            border: 2px solid rgba(255, 0, 0, 0.8) !important;
-            box-shadow: 0 0 5px rgba(255, 0, 0, 0.5);
+            border: 3px solid rgba(255, 0, 0, 0.9) !important;
+            box-shadow: 0 0 10px rgba(255, 0, 0, 0.7);
+            animation: invalid-pulse 0.5s ease-in-out infinite;
+        }
+
+        @keyframes preview-pulse {
+            0%, 100% { box-shadow: 0 0 5px rgba(0, 255, 0, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(0, 255, 0, 0.9); }
+        }
+
+        @keyframes invalid-pulse {
+            0%, 100% { box-shadow: 0 0 5px rgba(255, 0, 0, 0.5); }
+            50% { box-shadow: 0 0 15px rgba(255, 0, 0, 0.9); }
         }
 
         .pieces-container {
@@ -501,7 +513,7 @@
     <!-- Lobby Screen -->
     <div id="lobbyScreen" class="game-container lobby-screen">
         <div style="position: relative;">
-            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.2.0</span>
+            <span class="version-badge" style="position: absolute; top: 0; right: 0;">v1.3.0</span>
             <h1>Multiplayer Blokus</h1>
         </div>
         <p>2-Player Online Game</p>
@@ -538,7 +550,7 @@
     <!-- Game Screen -->
     <div id="gameScreen" class="game-container hidden">
         <div class="game-header">
-            <span class="version-badge">v1.2.0</span>
+            <span class="version-badge">v1.3.0</span>
             <h1>Multiplayer Blokus</h1>
             <div class="room-code-display">
                 Room Code: <strong id="gameRoomCode"></strong>
@@ -874,14 +886,24 @@
                 const state = snapshot.val();
                 if (!state) return;
 
+                console.log('🔄 Firebase state received:', state);
+
                 // Update local game state
-                game.board = state.board;
+                // Firebase converts arrays to objects, so we need to convert them back
+                game.board = Object.values(state.board).map(row => Object.values(row));
                 game.currentPlayerIndex = state.currentPlayerIndex;
                 game.passCount = state.passCount;
 
-                // Update pieces
-                game.players[0].pieces = state.pieces[0];
-                game.players[1].pieces = state.pieces[1];
+                // Update pieces - convert Firebase objects back to arrays
+                game.players[0].pieces = Object.values(state.pieces[0] || {});
+                game.players[1].pieces = Object.values(state.pieces[1] || {});
+
+                console.log('✅ Local game state updated:', {
+                    board: game.board,
+                    player0Pieces: game.players[0].pieces.length,
+                    player1Pieces: game.players[1].pieces.length,
+                    currentPlayer: game.currentPlayerIndex
+                });
 
                 // Update UI
                 renderBoard();
